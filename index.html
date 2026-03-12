@@ -1,173 +1,462 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Real Time Chat</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RestoPro Ultimate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+        
+        :root { --primary: #f97316; --bg: #0f172a; }
+        body { font-family: 'Outfit', sans-serif; background-color: var(--bg); color: #f1f5f9; margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .view-content { display: none; height: 100%; overflow-y: auto; padding-bottom: 100px; }
+        .view-content.active { display: block; }
+        
+        .nav-active { color: var(--primary) !important; background: rgba(249, 115, 22, 0.1); border-radius: 1rem; }
+        .btn-primary { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); transition: all 0.2s; }
+        .btn-primary:active { transform: scale(0.95); }
 
-<style>
+        /* Print Style */
+        @media print {
+            body * { visibility: hidden; }
+            #receipt-print-area, #receipt-print-area * { visibility: visible; }
+            #receipt-print-area { position: absolute; left: 0; top: 0; width: 100%; color: black !important; background: white !important; padding: 20px; font-family: monospace; }
+        }
 
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:Arial;
-}
-
-body{
-background:#0f172a;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
-color:white;
-}
-
-.chat-container{
-width:380px;
-height:600px;
-background:#1e293b;
-border-radius:12px;
-display:flex;
-flex-direction:column;
-overflow:hidden;
-}
-
-.header{
-background:#2563eb;
-padding:15px;
-text-align:center;
-font-size:20px;
-}
-
-.messages{
-flex:1;
-padding:10px;
-overflow-y:auto;
-}
-
-.message{
-margin:6px 0;
-padding:10px;
-border-radius:8px;
-max-width:75%;
-}
-
-.me{
-background:#3b82f6;
-align-self:flex-end;
-}
-
-.other{
-background:#475569;
-align-self:flex-start;
-}
-
-.input-area{
-display:flex;
-padding:10px;
-background:#111827;
-}
-
-input{
-flex:1;
-padding:10px;
-border:none;
-border-radius:6px;
-}
-
-button{
-margin-left:5px;
-padding:10px 15px;
-border:none;
-background:#2563eb;
-color:white;
-border-radius:6px;
-cursor:pointer;
-}
-
-button:hover{
-background:#1d4ed8;
-}
-
-</style>
+        @media (min-width: 769px) {
+            .app-container { flex-direction: row; }
+            .sidebar { width: 260px; display: flex !important; }
+            .mobile-nav { display: none !important; }
+        }
+    </style>
 </head>
+<body class="app-container flex flex-col">
 
-<body>
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="sidebar hidden glass h-full p-6 flex-col border-r border-white/10">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-10 h-10 btn-primary rounded-xl flex items-center justify-center font-black text-white">R</div>
+            <h1 class="text-xl font-black italic text-white">Elite<span class="text-orange-500">POS</span></h1>
+        </div>
+        <nav class="space-y-2 flex-1">
+            <button onclick="switchView('waiter')" id="side-waiter" class="w-full flex items-center gap-4 px-4 py-3 font-semibold text-slate-400 hover:text-white transition-all">
+                <i data-lucide="utensils"></i> Dine-in
+            </button>
+            <button onclick="switchView('kitchen')" id="side-kitchen" class="w-full flex items-center gap-4 px-4 py-3 font-semibold text-slate-400 hover:text-white transition-all">
+                <i data-lucide="chef-hat"></i> Kitchen
+            </button>
+            <button onclick="switchView('counter')" id="side-counter" class="w-full flex items-center gap-4 px-4 py-3 font-semibold text-slate-400 hover:text-white transition-all">
+                <i data-lucide="wallet"></i> Billing
+            </button>
+            <button onclick="openAdminAuth()" id="side-admin" class="w-full flex items-center gap-4 px-4 py-3 font-semibold text-slate-400 hover:text-white transition-all">
+                <i data-lucide="settings"></i> Admin
+            </button>
+        </nav>
+        <div class="glass p-4 rounded-2xl border border-white/5">
+            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Total Sale</p>
+            <div id="side-revenue" class="text-xl font-black text-white">₹0</div>
+        </div>
+    </aside>
 
-<div class="chat-container">
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 relative overflow-hidden">
+        
+        <!-- WAITER VIEW -->
+        <section id="waiter-view" class="view-content active p-4 md:p-8">
+            <div class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <div class="flex flex-col md:flex-row justify-between gap-4 mb-6">
+                        <h2 class="text-3xl font-black">Menu</h2>
+                        <select id="table-select" class="bg-slate-800 p-3 rounded-xl border border-white/10 outline-none min-w-[120px]">
+                            <option value="">Table #</option>
+                        </select>
+                    </div>
+                    <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+                </div>
+                <!-- Cart -->
+                <div class="glass p-5 rounded-[2rem] flex flex-col h-fit sticky top-0">
+                    <h3 class="font-bold flex items-center gap-2 mb-4 text-orange-500"><i data-lucide="shopping-cart"></i> Basket</h3>
+                    <div id="cart-items" class="space-y-2 mb-4 max-h-[40vh] overflow-y-auto"></div>
+                    <div class="pt-4 border-t border-white/10">
+                        <div class="flex justify-between mb-4"><span>Total</span><b id="cart-total" class="text-xl font-black text-white">₹0</b></div>
+                        <button onclick="placeKOT()" class="w-full btn-primary py-4 rounded-xl font-bold text-white shadow-lg">Send to Kitchen</button>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-<div class="header">Chat Room</div>
+        <!-- KITCHEN VIEW -->
+        <section id="kitchen-view" class="view-content p-4 md:p-8">
+            <h2 class="text-3xl font-black mb-6">Kitchen Flow</h2>
+            <div id="kitchen-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
 
-<div class="messages" id="messages"></div>
+        <!-- COUNTER VIEW -->
+        <section id="counter-view" class="view-content p-4 md:p-8">
+            <h2 class="text-3xl font-black mb-6">Billing Counter</h2>
+            <div id="active-bills" class="grid gap-3 max-w-xl"></div>
+        </section>
 
-<div class="input-area">
-<input id="messageInput" placeholder="Type message...">
-<button onclick="sendMessage()">Send</button>
-</div>
+        <!-- ADMIN VIEW -->
+        <section id="admin-view" class="view-content p-4 md:p-8">
+            <h2 class="text-3xl font-black mb-6">Restaurant Manager</h2>
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <div class="glass p-5 rounded-3xl border-l-4 border-orange-500">
+                    <p class="text-[10px] font-bold text-slate-500">REVENUE</p>
+                    <h4 id="admin-rev" class="text-2xl font-black">₹0</h4>
+                </div>
+                <div class="glass p-5 rounded-3xl border-l-4 border-blue-500">
+                    <p class="text-[10px] font-bold text-slate-500">VISITS</p>
+                    <h4 id="admin-visits" class="text-2xl font-black">0</h4>
+                </div>
+            </div>
+            
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold">Inventory</h3>
+                <button onclick="toggleModal('dish-modal', true)" class="bg-orange-500/20 text-orange-500 px-4 py-2 rounded-lg text-xs font-bold">+ Add Dish</button>
+            </div>
+            <div class="glass rounded-2xl overflow-hidden mb-8">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-white/5"><tr><th class="p-3">Item</th><th class="p-3">Price</th><th class="p-3">Action</th></tr></thead>
+                    <tbody id="admin-dish-list"></tbody>
+                </table>
+            </div>
 
-</div>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold">Tables</h3>
+                <button onclick="addTable()" class="bg-white/10 px-4 py-2 rounded-lg text-xs font-bold">+ Add Table</button>
+            </div>
+            <div id="admin-table-list" class="grid grid-cols-4 sm:grid-cols-6 gap-2"></div>
+        </section>
+    </main>
 
-<script>
+    <!-- MOBILE NAVIGATION -->
+    <nav class="mobile-nav fixed bottom-0 left-0 right-0 h-20 glass border-t border-white/10 flex justify-around items-center px-2 z-50">
+        <button onclick="switchView('waiter')" id="mob-waiter" class="flex flex-col items-center gap-1 text-slate-400 p-2 transition-all">
+            <i data-lucide="utensils" class="w-5 h-5"></i><span class="text-[10px] font-bold">Dine</span>
+        </button>
+        <button onclick="switchView('kitchen')" id="mob-kitchen" class="flex flex-col items-center gap-1 text-slate-400 p-2 transition-all">
+            <i data-lucide="chef-hat" class="w-5 h-5"></i><span class="text-[10px] font-bold">Kitchen</span>
+        </button>
+        <button onclick="switchView('counter')" id="mob-counter" class="flex flex-col items-center gap-1 text-slate-400 p-2 transition-all">
+            <i data-lucide="wallet" class="w-5 h-5"></i><span class="text-[10px] font-bold">Bills</span>
+        </button>
+        <button onclick="openAdminAuth()" id="mob-admin" class="flex flex-col items-center gap-1 text-slate-400 p-2 transition-all">
+            <i data-lucide="settings" class="w-5 h-5"></i><span class="text-[10px] font-bold">Admin</span>
+        </button>
+    </nav>
 
-let user = "User" + Math.floor(Math.random()*1000)
+    <!-- MODALS -->
+    <!-- Admin Auth -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] hidden flex items-center justify-center p-6">
+        <div class="glass p-8 rounded-[2.5rem] w-full max-w-xs text-center border border-white/10">
+            <div class="w-16 h-16 bg-orange-500/20 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-6"><i data-lucide="lock" class="w-8 h-8"></i></div>
+            <h3 class="text-xl font-black mb-4">Admin Login</h3>
+            <input type="password" id="pin-input" placeholder="Enter PIN" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-center text-2xl tracking-widest outline-none mb-4 focus:border-orange-500 transition-all">
+            <div class="flex gap-2">
+                <button onclick="toggleModal('auth-modal', false)" class="flex-1 py-3 text-slate-500 font-bold">Back</button>
+                <button onclick="checkPin()" class="flex-1 btn-primary py-3 rounded-xl font-bold">Login</button>
+            </div>
+        </div>
+    </div>
 
-function loadMessages(){
+    <!-- Payment -->
+    <div id="pay-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] hidden flex items-center justify-center p-6">
+        <div class="glass p-8 rounded-[2.5rem] w-full max-w-sm border border-white/10">
+            <div class="text-center mb-6">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Grand Total</p>
+                <h2 id="pay-total-display" class="text-5xl font-black text-orange-500">₹0</h2>
+            </div>
+            <div id="pay-methods" class="space-y-3">
+                <button onclick="completePayment('Cash')" class="w-full p-4 rounded-xl bg-white/5 border border-white/10 flex justify-between font-bold items-center">Cash <i data-lucide="banknote" class="text-green-500"></i></button>
+                <button onclick="showQR()" class="w-full p-4 rounded-xl bg-white/5 border border-white/10 flex justify-between font-bold items-center">UPI / QR <i data-lucide="smartphone" class="text-blue-500"></i></button>
+                <button onclick="completePayment('Card')" class="w-full p-4 rounded-xl bg-white/5 border border-white/10 flex justify-between font-bold items-center">Card <i data-lucide="credit-card" class="text-purple-500"></i></button>
+                <div class="pt-4 mt-2 border-t border-white/10">
+                    <button onclick="doPrint()" class="w-full bg-white/10 py-4 rounded-xl font-bold flex items-center justify-center gap-2"><i data-lucide="printer" class="w-4 h-4"></i> Print Receipt</button>
+                </div>
+            </div>
+            <div id="qr-screen" class="hidden text-center">
+                <div id="qr-box" class="bg-white p-4 inline-block rounded-2xl mb-4"></div>
+                <button onclick="completePayment('UPI')" class="w-full btn-primary py-4 rounded-xl font-bold">Payment Received</button>
+                <button onclick="showPayMethods()" class="mt-4 text-[10px] font-bold uppercase text-slate-500">Back</button>
+            </div>
+            <button onclick="toggleModal('pay-modal', false)" class="mt-8 w-full text-center text-[10px] font-bold text-slate-600 uppercase">Cancel</button>
+        </div>
+    </div>
 
-let messages = JSON.parse(localStorage.getItem("chatMessages")) || []
+    <!-- Dish Modal -->
+    <div id="dish-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] hidden flex items-center justify-center p-6">
+        <div class="glass p-8 rounded-[2.5rem] w-full max-w-sm">
+            <h3 class="text-xl font-bold mb-4">New Menu Item</h3>
+            <input type="text" id="new-dish-name" placeholder="Item Name" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl mb-4 outline-none">
+            <input type="number" id="new-dish-price" placeholder="Price (₹)" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl mb-6 outline-none">
+            <div class="flex gap-2">
+                <button onclick="toggleModal('dish-modal', false)" class="flex-1 py-3 text-slate-500 font-bold">Cancel</button>
+                <button onclick="saveDish()" class="flex-1 btn-primary py-3 rounded-xl font-bold">Save</button>
+            </div>
+        </div>
+    </div>
 
-let box = document.getElementById("messages")
-box.innerHTML=""
+    <div id="receipt-print-area" class="hidden"></div>
 
-messages.forEach(m => {
+    <script>
+        // Data Store
+        let dishes = JSON.parse(localStorage.getItem('rp_dishes')) || [
+            { id: 1, name: "Hyderabadi Biryani", price: 299 },
+            { id: 2, name: "Paneer Tikka", price: 240 },
+            { id: 3, name: "Masala Chai", price: 30 }
+        ];
+        let tables = JSON.parse(localStorage.getItem('rp_tables')) || [1, 2, 3, 4, 5, 6];
+        let orders = JSON.parse(localStorage.getItem('rp_orders')) || [];
+        let revenue = JSON.parse(localStorage.getItem('rp_rev')) || 0;
+        let visits = JSON.parse(localStorage.getItem('rp_visits')) || 0;
+        
+        let cart = [];
+        let activePayTable = null;
+        let activePayTotal = 0;
 
-let div = document.createElement("div")
+        // UI Helpers
+        function switchView(view) {
+            document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+            document.getElementById(view + '-view').classList.add('active');
+            
+            document.querySelectorAll('.sidebar button, .mobile-nav button').forEach(b => b.classList.remove('nav-active'));
+            document.getElementById('side-' + view)?.classList.add('nav-active');
+            document.getElementById('mob-' + view)?.classList.add('nav-active');
+            
+            if(view === 'waiter') renderWaiter();
+            if(view === 'kitchen') renderKitchen();
+            if(view === 'counter') renderCounter();
+            if(view === 'admin') renderAdmin();
+            lucide.createIcons();
+        }
 
-div.classList.add("message")
+        function toggleModal(id, show) {
+            document.getElementById(id).classList.toggle('hidden', !show);
+            lucide.createIcons();
+        }
 
-if(m.user === user){
-div.classList.add("me")
-}else{
-div.classList.add("other")
-}
+        function openAdminAuth() { toggleModal('auth-modal', true); }
+        function checkPin() {
+            if(document.getElementById('pin-input').value === '1234') {
+                toggleModal('auth-modal', false);
+                switchView('admin');
+            } else alert("Incorrect PIN!");
+        }
 
-div.innerText = m.user + ": " + m.text
+        // Waiter Logic
+        function renderWaiter() {
+            const grid = document.getElementById('menu-grid');
+            grid.innerHTML = dishes.map(d => `
+                <div onclick="addToCart(${d.id})" class="glass p-4 rounded-2xl border border-white/5 active:bg-orange-500/10 cursor-pointer">
+                    <p class="font-bold text-sm mb-1">${d.name}</p>
+                    <p class="text-orange-500 font-black">₹${d.price}</p>
+                </div>
+            `).join('');
+            
+            document.getElementById('table-select').innerHTML = '<option value="">Table #</option>' + 
+                tables.map(t => `<option value="${t}">#${t}</option>`).join('');
+        }
 
-box.appendChild(div)
+        function addToCart(id) {
+            const dish = dishes.find(d => d.id === id);
+            const exists = cart.find(c => c.id === id);
+            if(exists) exists.qty++; else cart.push({...dish, qty: 1});
+            updateCartUI();
+        }
 
-})
+        function updateCartUI() {
+            const list = document.getElementById('cart-items');
+            list.innerHTML = cart.map(c => `
+                <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl text-xs">
+                    <span>${c.name} (x${c.qty})</span>
+                    <b>₹${c.price * c.qty}</b>
+                </div>
+            `).join('') || '<p class="text-center py-6 opacity-20 text-xs italic">Basket empty</p>';
+            
+            const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+            document.getElementById('cart-total').innerText = '₹' + total;
+        }
 
-box.scrollTop = box.scrollHeight
+        function placeKOT() {
+            const table = document.getElementById('table-select').value;
+            if(!table) return alert("Select a Table first!");
+            if(!cart.length) return alert("Basket is empty!");
+            
+            const newOrder = {
+                id: Date.now(),
+                table: table,
+                items: [...cart],
+                status: 'pending',
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            
+            orders.push(newOrder);
+            saveData();
+            cart = [];
+            updateCartUI();
+            switchView('kitchen');
+        }
 
-}
+        // Kitchen Logic
+        function renderKitchen() {
+            const container = document.getElementById('kitchen-grid');
+            const pending = orders.filter(o => o.status === 'pending');
+            
+            container.innerHTML = pending.map(o => `
+                <div class="glass p-5 rounded-[2rem] border-l-4 border-orange-500">
+                    <div class="flex justify-between mb-4"><span class="font-black text-xl">Table ${o.table}</span><span class="opacity-40 text-xs">${o.time}</span></div>
+                    <div class="space-y-1 mb-6">${o.items.map(i => `<div class="flex justify-between text-sm"><span>${i.name}</span><b>x${i.qty}</b></div>`).join('')}</div>
+                    <button onclick="markReady(${o.id})" class="w-full bg-white/5 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-white/10">Mark Ready</button>
+                </div>
+            `).join('') || '<div class="col-span-full py-20 text-center opacity-20">Kitchen is clear</div>';
+        }
 
-function sendMessage(){
+        function markReady(id) {
+            const order = orders.find(o => o.id === id);
+            if(order) order.status = 'ready';
+            saveData();
+            renderKitchen();
+        }
 
-let input = document.getElementById("messageInput")
-let text = input.value
+        // Counter Logic
+        function renderCounter() {
+            const container = document.getElementById('active-bills');
+            const unpaidTables = [...new Set(orders.filter(o => o.status !== 'paid').map(o => o.table))].sort();
+            
+            container.innerHTML = unpaidTables.map(t => {
+                const total = orders.filter(o => o.table == t && o.status !== 'paid')
+                                   .reduce((s, o) => s + o.items.reduce((ss, i) => ss + (i.price * i.qty), 0), 0);
+                return `
+                    <div class="glass p-5 rounded-3xl flex justify-between items-center">
+                        <span class="font-bold">Table ${t}</span>
+                        <div class="flex gap-4 items-center">
+                            <span class="font-black text-orange-500">₹${total}</span>
+                            <button onclick="initPay(${t}, ${total})" class="btn-primary px-5 py-2 rounded-xl text-[10px] font-black text-white">GENERATE BILL</button>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<div class="py-20 text-center opacity-20">No active bills</div>';
+        }
 
-if(text === "") return
+        function initPay(table, total) {
+            activePayTable = table;
+            activePayTotal = total;
+            document.getElementById('pay-total-display').innerText = '₹' + total;
+            showPayMethods();
+            toggleModal('pay-modal', true);
+        }
 
-let messages = JSON.parse(localStorage.getItem("chatMessages")) || []
+        function showQR() {
+            document.getElementById('pay-methods').classList.add('hidden');
+            document.getElementById('qr-screen').classList.remove('hidden');
+            const box = document.getElementById('qr-box');
+            box.innerHTML = "";
+            new QRCode(box, { text: "ElitePOS-Payment-Ref-" + Date.now(), width: 140, height: 140 });
+        }
 
-messages.push({
-user:user,
-text:text
-})
+        function showPayMethods() {
+            document.getElementById('pay-methods').classList.remove('hidden');
+            document.getElementById('qr-screen').classList.add('hidden');
+        }
 
-localStorage.setItem("chatMessages", JSON.stringify(messages))
+        function completePayment(method) {
+            revenue += activePayTotal;
+            visits += 1;
+            orders.filter(o => o.table == activePayTable).forEach(o => o.status = 'paid');
+            saveData();
+            toggleModal('pay-modal', false);
+            renderCounter();
+            updateStats();
+        }
 
-input.value=""
+        function doPrint() {
+            const tableOrders = orders.filter(o => o.table == activePayTable && o.status !== 'paid');
+            let itemsHtml = "";
+            tableOrders.forEach(o => o.items.forEach(i => {
+                itemsHtml += `<tr><td>${i.name}</td><td>${i.qty}</td><td>${i.price*i.qty}</td></tr>`;
+            }));
+            
+            document.getElementById('receipt-print-area').innerHTML = `
+                <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:10px; margin-bottom:10px;">
+                    <h2 style="margin:0">ELITE RESTAURANT</h2>
+                    <p style="font-size:10px">Date: ${new Date().toLocaleString()}</p>
+                    <p>Table: ${activePayTable}</p>
+                </div>
+                <table style="width:100%; font-size:12px; text-align:left;">
+                    <thead><tr><th>Item</th><th>Qty</th><th>Amt</th></tr></thead>
+                    <tbody>${itemsHtml}</tbody>
+                </table>
+                <div style="border-top:1px dashed #000; margin-top:10px; padding-top:10px; text-align:right;">
+                    <h3 style="margin:0">Total: ₹${activePayTotal}</h3>
+                </div>
+                <p style="text-align:center; font-size:10px; margin-top:20px;">THANK YOU! VISIT AGAIN</p>
+            `;
+            window.print();
+        }
 
-loadMessages()
+        // Admin Logic
+        function renderAdmin() {
+            updateStats();
+            document.getElementById('admin-dish-list').innerHTML = dishes.map(d => `
+                <tr class="border-b border-white/5">
+                    <td class="p-3">${d.name}</td>
+                    <td class="p-3 text-orange-500 font-bold">₹${d.price}</td>
+                    <td class="p-3"><button onclick="deleteDish(${d.id})" class="text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('admin-table-list').innerHTML = tables.map(t => `
+                <div class="glass p-3 rounded-xl text-center font-bold text-xs relative group">
+                    T-${t}
+                    <button onclick="deleteTable(${t})" class="absolute -top-1 -right-1 bg-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="x" class="w-2 h-2"></i></button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
 
-}
+        function updateStats() {
+            document.getElementById('side-revenue').innerText = '₹' + revenue;
+            document.getElementById('admin-rev').innerText = '₹' + revenue;
+            document.getElementById('admin-visits').innerText = visits;
+        }
 
-window.addEventListener("storage", loadMessages)
+        function saveDish() {
+            const n = document.getElementById('new-dish-name').value;
+            const p = parseInt(document.getElementById('new-dish-price').value);
+            if(n && p) {
+                dishes.push({ id: Date.now(), name: n, price: p });
+                saveData();
+                renderAdmin();
+                toggleModal('dish-modal', false);
+                document.getElementById('new-dish-name').value = "";
+                document.getElementById('new-dish-price').value = "";
+            }
+        }
 
-loadMessages()
+        function deleteDish(id) { dishes = dishes.filter(d => d.id !== id); saveData(); renderAdmin(); }
+        function addTable() { tables.push(tables.length ? Math.max(...tables) + 1 : 1); saveData(); renderAdmin(); }
+        function deleteTable(t) { tables = tables.filter(x => x !== t); saveData(); renderAdmin(); }
 
-</script>
+        function saveData() {
+            localStorage.setItem('rp_dishes', JSON.stringify(dishes));
+            localStorage.setItem('rp_tables', JSON.stringify(tables));
+            localStorage.setItem('rp_orders', JSON.stringify(orders));
+            localStorage.setItem('rp_rev', JSON.stringify(revenue));
+            localStorage.setItem('rp_visits', JSON.stringify(visits));
+        }
 
+        window.onload = () => {
+            switchView('waiter');
+            lucide.createIcons();
+        };
+    </script>
 </body>
 </html>
+
